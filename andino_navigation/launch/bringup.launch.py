@@ -47,6 +47,7 @@ def generate_launch_description():
     # Get the launch directory
     andino_navigation_dir = get_package_share_directory('andino_navigation')
     nav2_launch_dir = os.path.join(get_package_share_directory('nav2_bringup'), 'launch')
+    andino_localization_dir = os.path.join(get_package_share_directory('andino_localization'), 'launch')
 
     # Create the launch configuration variables
     namespace = LaunchConfiguration('namespace')
@@ -141,15 +142,38 @@ def generate_launch_description():
             arguments=['--ros-args', '--log-level', log_level],
             remappings=remappings,
             output='screen'),
-        # TODO(olmerg) change to andino slam launch
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(os.path.join(nav2_launch_dir, 'slam_launch.py')),
-            condition=IfCondition(slam),
-            launch_arguments={'namespace': namespace,
-                              'use_sim_time': use_sim_time,
-                              'autostart': autostart,
-                              'use_respawn': use_respawn,
-                              'params_file': params_file}.items()),
+        
+        # Static transform publisher from map to odom
+        Node(
+            package='tf2_ros',
+            executable='static_transform_publisher',
+            name='static_transform_publisher_map_to_odom',
+            output='log',
+            arguments=['0', '0', '0', '0', '0', '0', 'map', 'odom']
+        ),
+        
+           IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(os.path.join(andino_localization_dir, 'rf2o_laser_odometry.launch.py')),
+                launch_arguments={
+                    'laser_scan_topic': '/scan',
+                    'odom_topic': '/odom',
+                    'publish_tf': 'true',
+                    'base_frame_id': 'base_footprint',
+                    'odom_frame_id': 'odom',
+                    'init_pose_from_topic': '',
+                    'freq': '40.0',
+                }.items()
+            ),
+       
+        # # # TODO(olmerg) change to andino slam launch
+        # IncludeLaunchDescription(
+        #     PythonLaunchDescriptionSource(os.path.join(nav2_launch_dir, 'slam_launch.py')),
+        #     condition=IfCondition(slam),
+        #     launch_arguments={'namespace': namespace,
+        #                       'use_sim_time': use_sim_time,
+        #                       'autostart': autostart,
+        #                       'use_respawn': use_respawn,
+        #                       'params_file': params_file}.items()),
         # TODO(olmerg)create andino localization launch
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(os.path.join(nav2_launch_dir,
